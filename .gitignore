@@ -1,0 +1,21 @@
+# ===== 临时文件 =====
+*.tmp
+*.swp
+*~
+.DS_Store
+
+# ===== 密钥与敏感信息 =====
+*.key
+*.pem
+*.pub
+id_ed25519*
+.ssh/
+
+# ===== 本地备份/输出 =====
+*.bak
+*.orig
+
+# ===== 构建产物 =====
+kernel_workspace/
+build.log
+*.zip
