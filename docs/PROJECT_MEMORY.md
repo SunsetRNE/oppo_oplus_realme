@@ -99,6 +99,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 - 哈希自动验证上线并实战验证（run 30872517396，10min 缓存命中）
 - 文档六件套建齐
 - **批量+组合测试收官**：批次A 6版本全绿；批次B 3组合全绿（sukisu+droidspaces / ksunext+kpm+bbr / none+lz4kd）；2个失败已定位修复（lz4/lz4kd互斥=参数问题；zram.zip 404=.gitignore遗漏已 git add -f 修复）
+- **批次C/D 收官**：剩余13版本全绿（21/21 workflow 全通过）；批次D 3/4组合成功；6.1.128 修复缺失 cd（ADR-009）；ksu原版受 tiann/KernelSU 上游漂移暂不可用（ADR-010）
 
 **🔄 进行中**
 - （无）
