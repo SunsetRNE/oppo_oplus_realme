@@ -66,6 +66,18 @@
 - **替代方案**：改 .gitignore 规则（否决：会放开所有 zip 忽略，影响面大）；改为 release 附件分发（否决：workflow 已用 raw URL）
 - **后果**：✅ 三平台 zram.zip 已入库（sm8850 298KB / sm8750+sm8650 各 194KB）；⚠️ raw CDN 对曾 404 的 URL 有负缓存，push 后需等待刷新（数分钟）
 
+## ADR-009 ｜ 6.1.128 workflow 缺失 cd kernel_workspace
+- **状态**：Accepted（2026-08-04）
+- **背景**：批次C测试发现 6.1.128（天玑特供）默认参数构建失败——`[ERROR] "drivers/" directory not found`（exit 127）。排查：全量对比 21 个 workflow，「添加KernelSU」步骤开头仅 6.1.128 缺少 `cd kernel_workspace`（20/21 有），导致 ReSukiSU setup.sh 在源码父目录执行找不到 `./drivers/`
+- **决策**：补上 `cd kernel_workspace`，与其余 20 个 workflow 对齐；该 bug 为上游 workflow 缺陷（非我们引入），修复后**回写上游友好提醒**（可选）
+- **后果**：✅ 修复推送（51b5205）并重新触发验证；⚠️ 上游下次同步可能覆盖此修复，需注意（SYNC 时检查）
+
+## ADR-010 ｜ ksu=原版 KernelSU 当前不可用（第三方上游漂移）
+- **状态**：Accepted（2026-08-04，观察中）
+- **背景**：批次D组合一（ksu原版+kpm+rekernel）编译失败：`drivers/kernelsu/feature/kernel_umount.c: fatal error: 'klog.h' not found`。定位：tiann/KernelSU main 分支已将 `klog.h` 从 `kernel/drivers/kernelsu/` 移到 `kernel/include/`（404→200），但 `kernel_umount.c` 的 `#include "klog.h"` 未同步更新——**上游 KernelSU 自身处于中间状态**，cctv18 同样会失败
+- **决策**：不改 workflow（避免偏离上游节奏）；记录为第三方依赖漂移，等待 tiann/KernelSU 修复；如需立即使用可锁 KernelSU 版本（`bash -s main` 改为指定 tag/commit）
+- **后果**：⚠️ ksu_type=ksu 组合暂不可用；✅ 其余 KSU 分支（resukisu/sukisu/ksunext/none）不受影响
+
 ---
 
 ## 🔗 相关文档
