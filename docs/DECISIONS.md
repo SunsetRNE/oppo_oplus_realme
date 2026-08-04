@@ -59,6 +59,13 @@
 - **替代方案**：人工计算哈希（否决：违背可验证初衷）；仅 notes 展示（否决：无独立校验文件，无法 `sha256sum -c`）
 - **后果**：✅ 发布即自带完整性校验依据，任何人可复验；✅ 上传损坏自动拦截；⚠️ Release 多一个 asset（可忽略体积）；⚠️ 自检步骤多一次下载（~20MB）
 
+## ADR-008 ｜ zram.zip 被 .gitignore 忽略导致打包 404
+- **状态**：Accepted（2026-08-04）
+- **背景**：统一仓库整合时 `.gitignore` 含 `*.zip`，三平台 `zram.zip` 从未入库；特定参数组合（ksu_type=none）打包时下载 `sm8850/zram.zip` 触发 404 → 构建失败（exit 8）
+- **决策**：`git add -f` 强制添加三平台 zram.zip；后续新增二进制附件时注意检查 .gitignore 规则
+- **替代方案**：改 .gitignore 规则（否决：会放开所有 zip 忽略，影响面大）；改为 release 附件分发（否决：workflow 已用 raw URL）
+- **后果**：✅ 三平台 zram.zip 已入库（sm8850 298KB / sm8750+sm8650 各 194KB）；⚠️ raw CDN 对曾 404 的 URL 有负缓存，push 后需等待刷新（数分钟）
+
 ---
 
 ## 🔗 相关文档

@@ -86,6 +86,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 8. **上游迭代模式**：以"新增内核小版本+CVE 补丁"为主，极少改既有脚本 → 快进合并风险低；新版本脚本可用模板化生成（潜在优化方向）
 9. **lz4 与 lz4kd 互斥**：两者都修改 `fs/f2fs/compress.c`，同时开启会补丁冲突（Hunk FAILED → .rej），触发组合参数时二选一（lz4kd=true 须配 lz4_enable=false）
 10. **组合测试注意**：批量触发不同参数组合时，先核对 inputs 互斥关系（参考各 workflow inputs 描述），避免无效失败浪费构建时间
+11. **zram.zip 特殊**：`.gitignore` 含 `*.zip`，三平台 zram.zip 需 `git add -f` 强制添加；raw CDN 对曾 404 的 URL 有负缓存（push 后需等数分钟刷新）；ksu_type=none 等组合打包时会下载 zram.zip
 
 ## 9. 当前进度（截至 2026-08-04）
 
