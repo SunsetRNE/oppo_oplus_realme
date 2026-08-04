@@ -284,6 +284,11 @@ jobs:
             echo "正在配置原版 KernelSU (tiann/KernelSU)..."
             curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
             cd ./KernelSU
+            # 修复 O=out 分离构建下 KSU_KERNEL_DIR 相对路径解析错误（$(src) 为 ../drivers/kernelsu 时拼接出错，-I 指向不存在目录导致 klog.h 找不到）
+            # 改为注入绝对 include 路径，稳定命中 KernelSU/kernel/include
+            KSU_ABS_DIR="$(pwd)/kernel"
+            sed -i "s|ccflags-y += -I\$(KSU_KERNEL_DIR) -I\$(KSU_KERNEL_DIR)/include|ccflags-y += -I${KSU_ABS_DIR} -I${KSU_ABS_DIR}/include|" kernel/Kbuild || true
+            grep -n "ccflags-y += -I" kernel/Kbuild | head -5
             KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/tiann/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 30000)
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
