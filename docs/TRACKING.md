@@ -33,7 +33,7 @@ git push origin --all --tags --prune
 | 13 | cctv18/android_kernel_oneplus_mt6897 | SunsetRNE/同左 | 内核源码(MTK) | 2026-08-03 fork 全分支 | ✅ |
 | 14 | cctv18/susfs4oki | SunsetRNE/susfs4oki | susfs 补丁 | 2026-08-03 fork 全分支（7） | ✅ |
 | 15 | cctv18/oneplus_sm8650_toolchain | SunsetRNE/同左 | 工具链(附件) | 2026-08-04 附件 8/8 | ✅ |
-| 16 | cctv18/public_ccache | SunsetRNE/public_ccache | ccache(附件) | 2026-08-04 搬运中 x/78 | 🔄 |
+| 16 | cctv18/public_ccache | SunsetRNE/public_ccache | ccache(附件) | 2026-08-04 附件 78/78（含4个断网失败后补传） | ✅ |
 | 17 | cctv18/AnyKernel3 / Baseband-guard / KPatch-Next / ReSukiSU_CI | SunsetRNE/同左 | 组件 | 附件已全量（1848/44） | ✅ |
 
 ## 同步后必做
