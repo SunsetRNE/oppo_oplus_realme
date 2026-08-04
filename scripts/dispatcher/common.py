@@ -36,13 +36,16 @@ def api(method, path, data=None, timeout=30):
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
     req.add_header("User-Agent", "operit-dispatcher")
-    body = json.dumps(data).encode("utf-8") if data is not None else None
+    body = None
+    if data is not None:
+        body = json.dumps(data).encode("utf-8")
+        req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req, body, timeout=timeout) as resp:
             raw = resp.read()
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")[:400]
+        return e.code, e.read().decode("utf-8", "replace")[:500]
 
 
 # ---------------- 时间工具 ----------------
@@ -177,18 +180,20 @@ def read_task_file(subdir, name):
 
 
 def write_task_file(subdir, name, task):
-    """创建任务文件（入队/写回）。返回是否成功。"""
-    status, _ = api("PUT", f"/contents/{QUEUE_DIR}/{subdir}/{name}", {
+    """创建任务文件（入队/写回）。返回 (是否成功, 状态码, 错误详情)。"""
+    status, data = api("PUT", f"/contents/{QUEUE_DIR}/{subdir}/{name}", {
         "message": f"queue: {subdir}/{name}",
         "content": _b64(json.dumps(task, ensure_ascii=False, indent=2)),
         "branch": BRANCH,
     })
-    return status == 201
+    ok = status == 201
+    return ok, status, (data if not ok else "")
 
 
 def move_task_file(src_subdir, name, dst_subdir, task):
     """移动任务文件 = 创建目标 + 删除源（非原子，幂等处理）。"""
-    if not write_task_file(dst_subdir, name, task):
+    ok, _, _ = write_task_file(dst_subdir, name, task)
+    if not ok:
         return False
     return delete_task_file(src_subdir, name)
 

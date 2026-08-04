@@ -112,10 +112,12 @@ def main():
             print(f"[DRY-RUN] 将入队 queue/pending/{name}")
             print(json.dumps(t, ensure_ascii=False, indent=2))
             continue
-        if write_task_file("pending", name, t):
+        ok, status, detail = write_task_file("pending", name, t)
+        if ok:
             print(f"✅ 已入队 queue/pending/{name}  ({t['workflow']})")
         else:
-            print(f"❌ 入队失败 queue/pending/{name}（检查 token 权限/文件是否已存在）")
+            print(f"❌ 入队失败 queue/pending/{name}  HTTP={status}")
+            print(f"   响应: {detail}")
             sys.exit(1)
 
     # 5) 汇总

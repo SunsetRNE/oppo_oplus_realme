@@ -100,8 +100,9 @@ def consume_pending():
             consumed += 1
             continue
         # 先写 running（占位，防重复消费）→ dispatch → 删 pending
-        if not write_task_file("running", f["name"], task):
-            done.append(f"❌ 移入 running 失败 {task['workflow']}（跳过本轮）")
+        ok, st, dt = write_task_file("running", f["name"], task)
+        if not ok:
+            done.append(f"❌ 移入 running 失败 {task['workflow']} HTTP={st} {dt}（跳过本轮）")
             continue
         if not _dispatch(task):
             # dispatch 失败：回滚到 pending（补写回），下次再试
