@@ -1,0 +1,43 @@
+# 📜 历史发布记录（Release Log）
+
+> 用途：全部 Release 的可追溯台账（正式包 + 测试包）
+> 更新时机：每次发布后按 `docs/RELEASE_PROCESS.md` 阶段 4 追加
+> 红线验证：产物 >10MB = 正式包通过；<10MB = 仅管线测试（不得视为正式发布）
+
+---
+
+## 📦 正式构建发布（可刷入内核包）
+
+| 日期(UTC) | 平台 | 内核版本 | Tag | 产物大小 | Run | 验证 |
+|---|---|---|---|---|---|---|
+| 2026-08-03 20:02 | sm8850 | 6.12.23-android16-5-ga8f88ad96df3 | `OPPO-OPlus-Realme-build-260804040203` | 18.8MB ✅ | fastbuild | ✅ >10MB |
+| 2026-08-03 20:33 | sm8650 | 6.1.141-android14-11-o-gca13bffobf09 | `OPPO-OPlus-Realme-build-260804043309` | 17.3MB ✅ | fastbuild | ✅ >10MB |
+| 2026-08-03 20:33 | sm8750 | 6.6.89-android15-8-g29d86c5fc9dd | `OPPO-OPlus-Realme-build-260804043353` | 17.7MB ✅ | fastbuild | ✅ >10MB |
+
+> 参数快照：KSU 分支 / susfs / lz4 / Droidspaces / kernel_suffix 以各 fastbuild workflow 触发时输入为准（GitHub Actions 运行历史可查）。
+
+## 🧪 发布管线测试（build-test 矩阵，非正式包）
+
+| 日期(UTC) | 平台 | Tag | 产物 | 说明 |
+|---|---|---|---|---|
+| 2026-08-04 01:16 | sm8850 | `OPPO-OPlus-Realme-build-sm8850-260804091613` | 0.0MB 测试包 | 矩阵版首次全绿验证 |
+| 2026-08-04 01:16 | sm8750 | `OPPO-OPlus-Realme-build-sm8750-260804091613` | 0.0MB 测试包 | 同上 |
+| 2026-08-04 01:16 | sm8650 | `OPPO-OPlus-Realme-build-sm8650-260804091615` | 0.0MB 测试包 | 同上 |
+
+> ⚠️ 测试包仅为验证发布管线（tag 创建 / release 发布 / 附件上传），**不可刷入设备**。正式包一律走 fastbuild 流程并满足 >10MB 红线。
+
+---
+
+## 发布速查
+
+- 命名规范：`OPPO-OPlus-Realme-build-<yyMMddHHmmss>`（fastbuild）/ `...-build-<platform>-<yyMMddHHmmss>`（矩阵）
+- 回滚方式：Delete release + 删 tag（GitHub 允许，见 RELEASE_PROCESS 红线）
+- 记录要求：日期 / 平台 / 版本 / tag / run id / 参数摘要 / 产物（每行一条）
+
+---
+
+## 🔗 相关文档
+
+- 发布流程：`docs/RELEASE_PROCESS.md`
+- 决策记录：`docs/DECISIONS.md`
+- 同步状态：`docs/TRACKING.md`
