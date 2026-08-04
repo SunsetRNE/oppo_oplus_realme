@@ -20,11 +20,15 @@
 
 ## 阶段 2｜构建验证（产物检查单）
 
-- [ ] workflow 结论 = **success**
+- [ ] workflow 结论 = **success**（含「产物完整性自检」步骤通过）
 - [ ] Release tag 已创建，命名规范：`OPPO-OPlus-Realme-build-<yyMMddHHmmss>`（fastbuild）或 `OPPO-OPlus-Realme-build-<platform>-<yyMMddHHmmss>`（矩阵 build-test）
 - [ ] 产物 zip 存在且 **大小 > 10MB**（小于 10MB 说明内核未正确打包，警惕）
+- [ ] **哈希验证**（workflow 自动完成，人工核对）：
+  - [ ] Release 附带 `checksums.sha256` 文件（workflow 自动上传）
+  - [ ] Release notes 中 `SHA256` 行与 `checksums.sha256` 一致
+  - [ ] 本地下载后 `sha256sum -c checksums.sha256` 校验通过（可选）
 - [ ] （可选）下载 zip 检查 `Image` 文件存在
-- [ ] Release notes 关键信息正确（内核版本 / KSU 分支 / 特性开关）
+- [ ] Release notes 关键信息正确（内核版本 / KSU 分支 / 特性开关 / SHA256）
 
 ## 阶段 3｜发布确认
 
