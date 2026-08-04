@@ -10,6 +10,7 @@
 
 | 日期(UTC) | 平台 | 内核版本 | Tag | 产物大小 | Run | 验证 |
 |---|---|---|---|---|---|---|
+| 2026-08-04 02:45 | sm8850 | 6.12.23-android16-5-ga8f88ad96df3 | `OPPO-OPlus-Realme-build-260804104533` | 18.8MB ✅ | 30872517396 | ✅ >10MB + SHA256自检（缓存命中10min） |
 | 2026-08-03 20:02 | sm8850 | 6.12.23-android16-5-ga8f88ad96df3 | `OPPO-OPlus-Realme-build-260804040203` | 18.8MB ✅ | fastbuild | ✅ >10MB |
 | 2026-08-03 20:33 | sm8650 | 6.1.141-android14-11-o-gca13bffobf09 | `OPPO-OPlus-Realme-build-260804043309` | 17.3MB ✅ | fastbuild | ✅ >10MB |
 | 2026-08-03 20:33 | sm8750 | 6.6.89-android15-8-g29d86c5fc9dd | `OPPO-OPlus-Realme-build-260804043353` | 17.7MB ✅ | fastbuild | ✅ >10MB |
