@@ -34,9 +34,44 @@ from common import (  # noqa: E402
 )
 
 DRY = "--dry-run" in sys.argv
+SUMMARY = "--summary" in sys.argv
+
+
+def print_summary():
+    """输出最近入队任务的完整配置（markdown，供 GITHUB_STEP_SUMMARY 展示）。
+
+    让触发者在 Actions 页面一眼确认本次注入的完整编译配置。
+    """
+    from common import list_queue_files, read_task_file
+    files = sorted((f["name"] for f in list_queue_files("pending")), reverse=True)
+    if not files:
+        print("### 🎛️ 生成器执行完成\n\n暂无 pending 任务。")
+        return
+    name = files[0]
+    task, _ = read_task_file("pending", name)
+    if not task:
+        print("### 🎛️ 生成器执行完成\n\n⚠️ 无法读取最近任务。")
+        return
+    lines = [
+        "### 🎛️ 生成器执行完成", "",
+        f"- **任务**: `{name}`",
+        f"- **工作流**: `{task.get('workflow')}`",
+        f"- **平台/版本**: {task.get('platform')} / {task.get('version')}",
+        f"- **档案已验证**: {'✅ 是' if task.get('profile_verified') else '⚠️ 否（verified=false，待人工校准）'}",
+        f"- **延迟触发**: {task.get('delay_until') or '立即'}",
+        "", "**注入配置（完整 inputs，来自档案解压）：**", "",
+        "| 参数 | 值 |", "|---|---|",
+    ]
+    for k, v in (task.get("inputs") or {}).items():
+        lines.append(f"| `{k}` | `{v}` |")
+    lines += ["", "> 任务已写入 `queue/pending/`，由触发器（每5分钟）自动消费。"]
+    print("\n".join(lines))
 
 
 def main():
+    if SUMMARY:
+        print_summary()
+        return
     workflow_file = os.environ.get("WORKFLOW", "").strip()
     suffix_mode = os.environ.get("SUFFIX_MODE", "empty").strip()
     suffix_custom = os.environ.get("SUFFIX_CUSTOM", "").strip()
@@ -130,10 +165,12 @@ def main():
         print(f"   响应: {detail}")
         sys.exit(1)
 
-    # 8) 汇总
+    # 8) 汇总（含完整配置清单，方便核对本次注入参数）
     suf = task["inputs"].get("kernel_suffix", "")
     print(f"\n📊 汇总：工作流 {task['workflow']} 已入队，等待触发器消费")
-    print(f"   · inputs {len(task['inputs'])} 个（来自档案解压）")
+    print(f"   · inputs {len(task['inputs'])} 个（来自档案解压，完整配置如下）")
+    for k, v in task["inputs"].items():
+        print(f"     - {k} = {v}")
     print(f"   · suffix={'空(用工作流默认)' if not suf else suf}")
     if not task["profile_verified"]:
         print("   ⚠️ 档案未验证（verified=false）——请以实测结果校准后置 true")

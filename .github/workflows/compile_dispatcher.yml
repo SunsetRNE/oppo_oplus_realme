@@ -87,9 +87,8 @@ jobs:
           DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
         run: python3 scripts/dispatcher/generate_tasks.py
 
-      - name: 输出摘要
+      - name: 输出摘要（完整配置）
         if: always()
-        run: |
-          echo "### 🎛️ 生成器执行完成" >> "$GITHUB_STEP_SUMMARY"
-          echo "- 任务已写入 \`queue/pending/\`，将由触发器（每5分钟）自动消费" >> "$GITHUB_STEP_SUMMARY"
-          echo "- 查看队列状态：仓库 \`queue/\` 目录" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/dispatcher/generate_tasks.py --summary >> "$GITHUB_STEP_SUMMARY"
