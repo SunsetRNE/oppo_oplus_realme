@@ -72,6 +72,12 @@ def main():
         generated.append(base)
     print(f"\n📊 档案生成：{len(generated)} 个（{len(skipped)} 个跳过）")
     print("   ⚠️ 全部 verified=false，请人工按实测校准后置 true")
+    if generated and not DRY:
+        # 档案增删后自动同步生成器表单选项（有档案才显示）
+        import subprocess
+        print("\n-- 同步生成器表单选项 --")
+        subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                     "sync_profile_options.py")], check=False)
 
 
 if __name__ == "__main__":

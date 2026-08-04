@@ -1,51 +1,44 @@
-name: 🎛️ 统一编译生成器（参数入队）
+name: 🎛️ 统一编译生成器（档案驱动·参数入队）
 
 # 独立于编译体系之外：只负责"生成任务入队"，不触发编译
 # 编译触发由 compile_trigger.yml（触发器）消费 queue/pending/ 完成
+# 链式触发器：仅列出有配置档案的工作流（无档案 = 无链 = 不显示/不触发/不警告）
+# ⚠️ workflow 选项块由 scripts/dispatcher/sync_profile_options.py 自动维护
+#    （BEGIN_PROFILE_OPTIONS / END_PROFILE_OPTIONS 之间），勿手改
 
 on:
   workflow_dispatch:
     inputs:
-      platform:
-        description: '目标平台（all=三平台全部，或指定单个）'
+      workflow:
+        description: '目标编译工作流（仅列有验证档案的；档案由人工维护 config/profiles/）'
         required: true
         type: choice
-        default: 'all'
         options:
-          - 'all'
-          - 'sm8850'
-          - 'sm8750'
-          - 'sm8650'
-      versions:
-        description: '版本过滤（逗号分隔，如 6.12.23,6.12.58；留空=该平台全部版本）'
-        required: false
-        type: string
-        default: ''
-      param_mode:
-        description: '参数模式（默认=各编译工作流默认参数；自定义=覆盖下方常用参数）'
-        required: true
-        type: choice
-        default: 'default'
-        options:
-          - 'default'
-          - 'custom'
-      ksu_type:
-        description: 'KSU分支（仅自定义模式生效；原版ksu因上游漂移不可用，勿选）'
-        required: true
-        type: choice
-        default: 'resukisu'
-        options:
-          - 'resukisu'
-          - 'sukisu'
-          - 'ksunext'
-          - 'none'
-      susfs_enable:
-        description: '是否开启susfs（仅自定义模式生效）'
-        required: true
-        type: boolean
-        default: true
+          # BEGIN_PROFILE_OPTIONS
+          - 'sm8650_fastbuild_6.1.115.yml'
+          - 'sm8650_fastbuild_6.1.118.yml'
+          - 'sm8650_fastbuild_6.1.128.yml'
+          - 'sm8650_fastbuild_6.1.134.yml'
+          - 'sm8650_fastbuild_6.1.141.yml'
+          - 'sm8650_fastbuild_6.1.57.yml'
+          - 'sm8650_fastbuild_6.1.75.yml'
+          - 'sm8750_fastbuild_6.6.118.yml'
+          - 'sm8750_fastbuild_6.6.30.yml'
+          - 'sm8750_fastbuild_6.6.50.yml'
+          - 'sm8750_fastbuild_6.6.56.yml'
+          - 'sm8750_fastbuild_6.6.57.yml'
+          - 'sm8750_fastbuild_6.6.66.yml'
+          - 'sm8750_fastbuild_6.6.89.yml'
+          - 'sm8750_fastbuild_6.6.89_mtk.yml'
+          - 'sm8850_fastbuild_6.12.23.yml'
+          - 'sm8850_fastbuild_6.12.23_gki.yml'
+          - 'sm8850_fastbuild_6.12.23_mtk.yml'
+          - 'sm8850_fastbuild_6.12.38.yml'
+          - 'sm8850_fastbuild_6.12.58.yml'
+          - 'sm8850_fastbuild_6.12.58_mtk.yml'
+          # END_PROFILE_OPTIONS
       suffix_mode:
-        description: '内核后缀模式（留空=用默认版本名；自动=生成SunsetRNE_时间戳_随机数；自定义=手动填）'
+        description: '内核后缀模式（留空=用编译工作流默认版本名；自动=SunsetRNE_时间戳_随机数；自定义=手动填）'
         required: true
         type: choice
         default: 'empty'
@@ -77,13 +70,9 @@ jobs:
       - name: 安装依赖
         run: pip install --quiet pyyaml
 
-      - name: 解析编译工作流并生成任务（dry-run 预检）
+      - name: 加载档案并生成任务（dry-run 预检）
         env:
-          PLATFORM: ${{ github.event.inputs.platform }}
-          VERSIONS: ${{ github.event.inputs.versions }}
-          PARAM_MODE: ${{ github.event.inputs.param_mode }}
-          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
-          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          WORKFLOW: ${{ github.event.inputs.workflow }}
           SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
           SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
           DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
@@ -92,11 +81,7 @@ jobs:
       - name: 正式入队 queue/pending/
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PLATFORM: ${{ github.event.inputs.platform }}
-          VERSIONS: ${{ github.event.inputs.versions }}
-          PARAM_MODE: ${{ github.event.inputs.param_mode }}
-          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
-          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          WORKFLOW: ${{ github.event.inputs.workflow }}
           SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
           SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
           DELAY_UNTIL: ${{ github.event.inputs.delay_until }}

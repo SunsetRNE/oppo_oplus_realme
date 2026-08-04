@@ -23,6 +23,7 @@ TOKEN = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
 BRANCH = os.environ.get("GITHUB_REF_NAME", "main")
 WORKFLOW_DIR = os.environ.get("WORKFLOW_DIR", ".github/workflows")
 QUEUE_DIR = os.environ.get("QUEUE_DIR", "queue")
+PROFILES_DIR = os.environ.get("PROFILES_DIR", "config/profiles")
 TZ_CN = datetime.timezone(datetime.timedelta(hours=8))  # UTC+8
 
 
@@ -101,6 +102,48 @@ def list_build_workflows():
         if m:
             out.append((base, m.group(1), m.group(2)))
     return out
+
+
+# ---------------- 配置档案（链式触发器的"链"，人工维护的验证资产） ----------------
+def list_profile_workflows():
+    """扫描 config/profiles/*.json，返回有档案的 workflow 文件名列表（按文件名排序）。
+
+    无档案的工作流 = 无链 = 不显示 / 不触发 / 不警告（生成器根本不提供选项）。
+    """
+    import glob
+    return sorted(
+        os.path.basename(f)[:-len(".json")]
+        for f in glob.glob(os.path.join(PROFILES_DIR, "*.json"))
+        if f.endswith(".yml.json")
+    )
+
+
+def load_profile(workflow_file):
+    """读取配置档案（文件名即匹配键：config/profiles/<workflow文件>.json）。
+
+    返回 (档案dict 或 None, 错误列表)。
+    严苛匹配：档案内 workflow 字段必须与文件名一致，否则视为无效档案。
+    """
+    errs = []
+    path = os.path.join(PROFILES_DIR, workflow_file + ".json")
+    if not os.path.exists(path):
+        return None, [f"无档案 {workflow_file}.json（无配置=不触发）"]
+    try:
+        with open(path, encoding="utf-8") as f:
+            profile = json.load(f)
+    except Exception as e:
+        return None, [f"档案 {workflow_file}.json 解析失败: {e}"]
+    # 严苛一对一匹配：档案 workflow 字段 == 文件名（双字段校验）
+    if profile.get("workflow") != workflow_file:
+        errs.append(
+            f"严苛匹配失败：档案 {workflow_file}.json 内 workflow="
+            f"{profile.get('workflow')!r} ≠ 文件名 {workflow_file}（档案无效，请删除或修复）"
+        )
+    if "default" not in profile.get("variants", {}):
+        errs.append(f"档案 {workflow_file}.json 缺少 variants.default（变体结构异常）")
+    if errs:
+        return None, errs
+    return profile, []
 
 
 # ---------------- 业务规则表（稳定业务知识，硬编码） ----------------
