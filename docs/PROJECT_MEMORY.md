@@ -51,7 +51,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 | 类型 | 数量 | 说明 |
 |---|---|---|
 | `sm*_fastbuild_*.yml` | 21 | 真实构建+发布；每版本 env 组（TZ/ANDROID_VERSION/KERNEL_VERSION/SUB_VERSION/KERNEL_NAME/CCACHE_KEY）；**2026-08-04 已加哈希三件套** |
-| `build-test.yml` | 1 | 三平台矩阵（platform: all/单个），只测发布管线不真编译，tag 带平台前缀 |
+| `build-test.yml` | 1 | 三平台矩阵（platform: all/单个），只测打包管线不真编译；**2026-08-04 起取消 Release 发布**（仅上传 artifact） |
 | `cleaner.yml` | 1 | 根级清 ccache（DELETE 确认） |
 | `clean_workflow.yml` | 1 | 根级清运行记录 |
 
