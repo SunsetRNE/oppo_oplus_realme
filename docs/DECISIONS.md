@@ -72,11 +72,14 @@
 - **决策**：补上 `cd kernel_workspace`，与其余 20 个 workflow 对齐；该 bug 为上游 workflow 缺陷（非我们引入），修复后**回写上游友好提醒**（可选）
 - **后果**：✅ 修复推送（51b5205）并重新触发验证；⚠️ 上游下次同步可能覆盖此修复，需注意（SYNC 时检查）
 
-## ADR-010 ｜ ksu=原版 KernelSU 当前不可用（第三方上游漂移）
-- **状态**：Accepted（2026-08-04，观察中）
-- **背景**：批次D组合一（ksu原版+kpm+rekernel）编译失败：`drivers/kernelsu/feature/kernel_umount.c: fatal error: 'klog.h' not found`。定位：tiann/KernelSU main 分支已将 `klog.h` 从 `kernel/drivers/kernelsu/` 移到 `kernel/include/`（404→200），但 `kernel_umount.c` 的 `#include "klog.h"` 未同步更新——**上游 KernelSU 自身处于中间状态**，cctv18 同样会失败
-- **决策**：不改 workflow（避免偏离上游节奏）；记录为第三方依赖漂移，等待 tiann/KernelSU 修复；如需立即使用可锁 KernelSU 版本（`bash -s main` 改为指定 tag/commit）
-- **后果**：⚠️ ksu_type=ksu 组合暂不可用；✅ 其余 KSU 分支（resukisu/sukisu/ksunext/none）不受影响
+## ADR-010 ｜ ksu=原版 KernelSU 曾不可用 → 已解决（O=out 分离构建路径缺陷）
+- **状态**：**Superseded（2026-08-04 晚，已修复并实测验证）**
+- **背景**：批次D组合一（ksu原版+kpm+rekernel）编译失败：`drivers/kernelsu/feature/kernel_umount.c: fatal error: 'klog.h' not found`。初判为 tiann/KernelSU 上游漂移（klog.h 移到 `kernel/include/`）
+- **根因（修正）**：上游 main 其实早已适配新布局（`kernel/` 根结构 + Kbuild `-I$(KSU_KERNEL_DIR)/include`），susfs4oki 的 KSU 补丁也适配新布局。真正的坑是**我们 workflow 使用 `O=out` 分离构建**，Kbuild 中 `$(src)` 变成 `../drivers/kernelsu`（相对 out 目录），与 `$(srctree)` 拼接后得到不存在的路径（`common/../drivers/kernelsu`），导致 `-I` 指向空目录 → klog.h 找不到。**上游自身 GKI 构建（源码树内）无此问题**
+- **修复**：workflow 的 ksu 分支在 `cd ./KernelSU` 后注入绝对 include 路径（sed 替换 `-I$(KSU_KERNEL_DIR)` 为 `-I$(pwd)/kernel`），21 个 fastbuild 全部套用（脚本 `scripts/patch_ksu_absdir.py`）
+- **验证**：sm8850 6.12.23 ksu_type=ksu 构建成功（run 30913997284），Release 产物 `AnyKernel3_KSU_32570_6.12_...zip` 18.8MB + checksums.sha256 ✅
+- **教训**：遇到"上游漂移"类报错，先自查构建模式差异（O=out / 源码树内），再怪上游
+- **遗留**：SunsetRNE/KernelSU fork（parent=rsuntk/KernelSU）Clippy 在 rustc 1.97 下有 2 个 `useless_borrows_in_formatting` lint 错误（上游代码 `&rule_file.display()` 未修），需 `&` 去掉或锁 1.96 toolchain——与本次内核构建无关，仅影响该 fork 的 CI
 
 ---
 
