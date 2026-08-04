@@ -35,8 +35,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/dispatcher/consume_tasks.py --batch ${{ inputs.batch_size || 2 }}
 
-      - name: 输出队列摘要
+      - name: 输出队列看板
         if: always()
-        run: |
-          echo "### 🔄 触发器执行完成" >> "$GITHUB_STEP_SUMMARY"
-          echo "- 队列状态见上方日志（pending/running/done/failed）" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/dispatcher/consume_tasks.py --board >> "$GITHUB_STEP_SUMMARY"

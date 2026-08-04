@@ -21,14 +21,20 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (  # noqa: E402
-    dispatch_workflow, get_run_status, is_due, list_queue_files, move_task_file,
-    now_iso, read_task_file, write_task_file, delete_task_file,
+    dispatch_workflow, find_release_tag, get_run_info, is_due, list_queue_files,
+    move_task_file, now_iso, read_task_file, write_task_file, delete_task_file,
 )
 
 DRY = "--dry-run" in sys.argv
+BOARD = "--board" in sys.argv
 BATCH = 2
 if "--batch" in sys.argv:
     BATCH = int(sys.argv[sys.argv.index("--batch") + 1])
+
+# 失败结论集：这些结论视为"编译失败"，走重试/归档策略（success 之外均视为失败）
+FAIL_CONCLUSIONS = {"failure", "cancelled", "timed_out", "action_required", "stale"}
+DONE_MAX_AGE_DAYS = 30
+DONE_CLEAN_LIMIT = 10
 
 
 def summary_line():
@@ -58,7 +64,8 @@ def _find_run_by_time(task):
 
 
 def reconcile_running():
-    """幂等恢复：扫 running/，查 run 状态；completed → done/，失败按重试策略。"""
+    """幂等恢复：扫 running/，查 run 状态；success → done/（回填 Release tag），
+    失败按 max_retry 策略重投 pending 或归档 failed/。"""
     moved = []
     for f in list_queue_files("running"):
         task, _ = read_task_file("running", f["name"])
@@ -79,21 +86,59 @@ def reconcile_running():
                 else:
                     moved.append(f"❌ 补触发失败 {task['workflow']}")
                 continue
-        status, conclusion = get_run_status(run_id)
+        status, conclusion, head_sha = get_run_info(run_id)
         if status != "completed":
             moved.append(f"⏳ {task['workflow']} run={run_id} 仍在 {status}")
             continue
-        # 完成：写回 done（含结果）
-        task["status"] = status
-        task["conclusion"] = conclusion
-        task["finished_at"] = now_iso()
-        if DRY:
-            moved.append(f"[DRY] 完成 {task['workflow']} run={run_id} conclusion={conclusion} → done/")
+        # ---- 已完成：按结论分流 ----
+        if conclusion == "success":
+            task["status"] = status
+            task["conclusion"] = conclusion
+            task["finished_at"] = now_iso()
+            # 尽力而为：回填正式发布 Release tag（匹配 head_sha）
+            tag = find_release_tag(head_sha) if head_sha else None
+            if tag:
+                task["release_tag"] = tag
+            if DRY:
+                moved.append(f"[DRY] 完成 {task['workflow']} run={run_id} conclusion={conclusion} → done/")
+                continue
+            if move_task_file("running", f["name"], "done", task):
+                moved.append(f"✅ 完成 {task['workflow']} run={run_id} conclusion={conclusion}"
+                             + (f" tag={tag}" if tag else "") + " → done/")
+            else:
+                moved.append(f"⚠️ 写回失败 {task['workflow']}（下次 cron 重试）")
             continue
-        if move_task_file("running", f["name"], "done", task):
-            moved.append(f"✅ 完成 {task['workflow']} run={run_id} conclusion={conclusion} → done/")
+        # ---- 失败：重试策略 ----
+        task["retry_count"] = task.get("retry_count", 0) + 1
+        max_retry = task.get("max_retry", 2)
+        if task["retry_count"] < max_retry:
+            # 回 pending 重投：清 run_id/dispatched_at（重新 dispatch 拿新 run）
+            task.pop("run_id", None)
+            task.pop("dispatched_at", None)
+            task["last_failure"] = conclusion or "unknown"
+            task["last_failure_at"] = now_iso()
+            if DRY:
+                moved.append(f"[DRY] 失败重投 {task['workflow']} conclusion={conclusion}"
+                             f"（{task['retry_count']}/{max_retry}）→ pending/")
+                continue
+            if move_task_file("running", f["name"], "pending", task):
+                moved.append(f"↻ 失败重投 {task['workflow']} conclusion={conclusion}"
+                             f"（{task['retry_count']}/{max_retry}）→ pending/")
+            else:
+                moved.append(f"⚠️ 重投写回失败 {task['workflow']}（下次 cron 重试）")
         else:
-            moved.append(f"⚠️ 写回失败 {task['workflow']}（下次 cron 重试）")
+            # 重试耗尽：归档 failed/
+            task["status"] = status
+            task["conclusion"] = conclusion
+            task["finished_at"] = now_iso()
+            if DRY:
+                moved.append(f"[DRY] 重试耗尽 {task['workflow']} conclusion={conclusion} → failed/")
+                continue
+            if move_task_file("running", f["name"], "failed", task):
+                moved.append(f"❌ 重试耗尽 → failed/ {task['workflow']} conclusion={conclusion}"
+                             f"（{task['retry_count']}/{max_retry}）")
+            else:
+                moved.append(f"⚠️ 归档失败 {task['workflow']}（下次 cron 重试）")
     return moved
 
 
@@ -144,7 +189,67 @@ def consume_pending():
     return done
 
 
+def cleanup_done(max_age_days=DONE_MAX_AGE_DAYS, limit=DONE_CLEAN_LIMIT):
+    """定期清理超龄 done 任务（防仓库膨胀）。每轮限量 limit 个。"""
+    import datetime
+    from common import TZ_CN
+    removed = []
+    cutoff = datetime.datetime.now(TZ_CN) - datetime.timedelta(days=max_age_days)
+    for f in list_queue_files("done"):
+        if len(removed) >= limit:
+            break
+        task, _ = read_task_file("done", f["name"])
+        if not task:
+            continue
+        ts = task.get("finished_at") or task.get("created_at")
+        if not ts:
+            continue
+        try:
+            t = datetime.datetime.fromisoformat(ts)
+        except ValueError:
+            continue
+        if t < cutoff:
+            if delete_task_file("done", f["name"]):
+                removed.append(f["name"])
+    return removed
+
+
+def board():
+    """输出队列看板（markdown，供 GITHUB_STEP_SUMMARY）。"""
+    lines = ["### 📊 编译队列看板", ""]
+    for sub in ("pending", "running", "done", "failed"):
+        n = len(list_queue_files(sub))
+        lines.append(f"- **{sub}**: {n}")
+    # 最近完成记录
+    done_files = sorted((f["name"] for f in list_queue_files("done")), reverse=True)[:5]
+    if done_files:
+        lines.append("")
+        lines.append("**最近完成：**")
+        for name in done_files:
+            task, _ = read_task_file("done", name)
+            if not task:
+                continue
+            tag = task.get("release_tag", "")
+            lines.append(f"- `{task.get('workflow', '?')}` conclusion=`{task.get('conclusion', '?')}`"
+                         + (f" tag=`{tag}`" if tag else ""))
+    # 最近失败记录
+    failed_files = sorted((f["name"] for f in list_queue_files("failed")), reverse=True)[:5]
+    if failed_files:
+        lines.append("")
+        lines.append("**最近失败：**")
+        for name in failed_files:
+            task, _ = read_task_file("failed", name)
+            if not task:
+                continue
+            lines.append(f"- `{task.get('workflow', '?')}` conclusion=`{task.get('conclusion', '?')}`"
+                         f" retry={task.get('retry_count', '?')}/{task.get('max_retry', '?')}")
+    print("\n".join(lines))
+
+
 def main():
+    if BOARD:
+        board()
+        return
     print(f"🔄 触发器开始 {now_iso()}  batch={BATCH}{' [DRY-RUN]' if DRY else ''}")
     print(summary_line())
     print("\n-- 恢复 running --")
@@ -153,6 +258,9 @@ def main():
     print("\n-- 消费 pending --")
     for line in consume_pending():
         print(f"  {line}")
+    print("\n-- 清理超龄 done --")
+    cleaned = cleanup_done()
+    print(f"  清理 {len(cleaned)} 个（超过 {DONE_MAX_AGE_DAYS} 天）" if cleaned else "  无需清理")
     print(f"\n{summary_line()}")
     print("🔄 触发器结束")
 

@@ -287,3 +287,27 @@ def get_run_status(run_id):
     if status != 200 or not data:
         return None, None
     return data.get("status"), data.get("conclusion")
+
+
+def get_run_info(run_id):
+    """查询 run 详情，返回 (status, conclusion, head_sha)。"""
+    status, data = api("GET", f"/actions/runs/{run_id}")
+    if status != 200 or not data:
+        return None, None, None
+    return data.get("status"), data.get("conclusion"), data.get("head_sha")
+
+
+def find_release_tag(head_sha, prefix="OPPO-OPlus-Realme-build"):
+    """尽力而为：按 head_sha 匹配该 run 创建的 Release tag（最近 50 个）。
+
+    编译 workflow 用 gh release create 发布正式包，tag 格式：
+    OPPO-OPlus-Realme-build-<yyMMddHHmmss>（上海时区）。
+    匹配失败返回 None（不影响主流程，仅审计增强）。
+    """
+    status, data = api("GET", "/releases?per_page=50")
+    if status != 200 or not isinstance(data, list):
+        return None
+    for rel in data:
+        if rel.get("target_commitish") == head_sha and rel.get("tag_name", "").startswith(prefix):
+            return rel["tag_name"]
+    return None
