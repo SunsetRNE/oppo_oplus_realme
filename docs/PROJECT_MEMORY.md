@@ -96,14 +96,13 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 - 三平台正式发布 ×3（6.12.23 / 6.6.89 / 6.1.141，17-19MB 可刷入包）
 - 哈希自动验证上线并实战验证（run 30872517396，10min 缓存命中）
 - 文档六件套建齐
+- **批量+组合测试收官**：批次A 6版本全绿；批次B 3组合全绿（sukisu+droidspaces / ksunext+kpm+bbr / none+lz4kd）；2个失败已定位修复（lz4/lz4kd互斥=参数问题；zram.zip 404=.gitignore遗漏已 git add -f 修复）
 
 **🔄 进行中**
-- 批量测试批次 A：sm8850(6.12.58, 6.12.23_mtk)、sm8750(6.6.118, 6.6.89_mtk)、sm8650(6.1.141, 6.1.57) 触发中（部分 204 已触发，需确认全部入队）
-- 批次 B 组合测试待触发（sm8850 6.12.23: ksu=none+lz4kd+susfs=false；sm8750 6.6.89: sukisu+droidspaces=standard；sm8650 6.1.141: ksunext+kpm+bbr=default）
+- （无）
 
 **📋 待办**
-- 批次 A/B 结果监控与验证（success + >10MB + SHA256 自检）
-- 新版本首次构建会生成新 ccache 并回传自持（自动）
+- （可选）测试剩余内核版本（6.12.58_mtk / 6.6.118 等）
 - PAT 撤销（7 天自动过期）
 
 ## 10. 后续开发路径（循环）
