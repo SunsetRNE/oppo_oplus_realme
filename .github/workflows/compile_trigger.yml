@@ -31,6 +31,8 @@ jobs:
         run: pip install --quiet pyyaml
 
       - name: 消费队列并触发编译
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 scripts/dispatcher/consume_tasks.py --batch ${{ inputs.batch_size || 2 }}
 
       - name: 输出队列摘要

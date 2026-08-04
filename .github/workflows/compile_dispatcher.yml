@@ -91,6 +91,7 @@ jobs:
 
       - name: 正式入队 queue/pending/
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PLATFORM: ${{ github.event.inputs.platform }}
           VERSIONS: ${{ github.event.inputs.versions }}
           PARAM_MODE: ${{ github.event.inputs.param_mode }}
