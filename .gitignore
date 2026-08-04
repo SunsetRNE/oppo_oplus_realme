@@ -18,4 +18,4 @@ id_ed25519*
 # ===== 构建产物 =====
 kernel_workspace/
 build.log
-*.zip
+*.zip__pycache__/
