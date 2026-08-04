@@ -1,0 +1,53 @@
+name: 📋 档案配置预览（只读）
+
+# 只读：选择工作流 → 展示其档案完整配置（markdown 表格）
+# 不触发编译、不写队列——纯粹"触发前预览配置"
+# ⚠️ workflow 选项块由 scripts/dispatcher/sync_profile_options.py 自动维护
+#    （BEGIN_PROFILE_OPTIONS / END_PROFILE_OPTIONS 之间），勿手改
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: '目标编译工作流（仅列有验证档案的；预览其完整编译配置）'
+        required: true
+        type: choice
+        options:
+          # BEGIN_PROFILE_OPTIONS
+          - 'sm8650_fastbuild_6.1.115.yml'
+          - 'sm8650_fastbuild_6.1.118.yml'
+          - 'sm8650_fastbuild_6.1.128.yml'
+          - 'sm8650_fastbuild_6.1.134.yml'
+          - 'sm8650_fastbuild_6.1.141.yml'
+          - 'sm8650_fastbuild_6.1.57.yml'
+          - 'sm8650_fastbuild_6.1.75.yml'
+          - 'sm8750_fastbuild_6.6.118.yml'
+          - 'sm8750_fastbuild_6.6.30.yml'
+          - 'sm8750_fastbuild_6.6.50.yml'
+          - 'sm8750_fastbuild_6.6.56.yml'
+          - 'sm8750_fastbuild_6.6.57.yml'
+          - 'sm8750_fastbuild_6.6.66.yml'
+          - 'sm8750_fastbuild_6.6.89.yml'
+          - 'sm8750_fastbuild_6.6.89_mtk.yml'
+          - 'sm8850_fastbuild_6.12.23.yml'
+          - 'sm8850_fastbuild_6.12.23_gki.yml'
+          - 'sm8850_fastbuild_6.12.23_mtk.yml'
+          - 'sm8850_fastbuild_6.12.38.yml'
+          - 'sm8850_fastbuild_6.12.58.yml'
+          - 'sm8850_fastbuild_6.12.58_mtk.yml'
+          # END_PROFILE_OPTIONS
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 展示档案完整配置
+        env:
+          WORKFLOW: ${{ github.event.inputs.workflow }}
+        run: python3 scripts/dispatcher/preview_profile.py >> "$GITHUB_STEP_SUMMARY"
