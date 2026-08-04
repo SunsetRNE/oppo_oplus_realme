@@ -1,8 +1,9 @@
-name: 🎛️ 统一编译生成器（档案驱动·参数入队）
+name: 🎛️ 统一编译生成器（参数入队）
 
 # 独立于编译体系之外：只负责"生成任务入队"，不触发编译
 # 编译触发由 compile_trigger.yml（触发器）消费 queue/pending/ 完成
 # 链式触发器：仅列出有配置档案的工作流（无档案 = 无链 = 不显示/不触发/不警告）
+# 表单预设参数 = 各编译工作流的预设默认值（已建档校准）；参数可改，改后自负验证责任
 # ⚠️ workflow 选项块由 scripts/dispatcher/sync_profile_options.py 自动维护
 #    （BEGIN_PROFILE_OPTIONS / END_PROFILE_OPTIONS 之间），勿手改
 
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       workflow:
-        description: '目标编译工作流（仅列有验证档案的；档案由人工维护 config/profiles/）'
+        description: '目标编译工作流（仅列有验证档案的；参数默认值已按档案预设）'
         required: true
         type: choice
         options:
@@ -37,8 +38,91 @@ on:
           - 'sm8850_fastbuild_6.12.58.yml'
           - 'sm8850_fastbuild_6.12.58_mtk.yml'
           # END_PROFILE_OPTIONS
+      ksu_type:
+        description: 'KSU分支（原版ksu因上游漂移不可用，勿选）'
+        required: true
+        type: choice
+        default: 'resukisu'
+        options:
+          - 'resukisu'
+          - 'sukisu'
+          - 'ksunext'
+          - 'none'
+      susfs_enable:
+        description: '是否开启susfs（隐藏环境挂载增强；上游不稳定时可关闭）'
+        required: true
+        type: boolean
+        default: true
+      kpm_enable:
+        description: '是否开启kpm（KpatchNext独立实现；不需要保持关闭）'
+        required: true
+        type: boolean
+        default: false
+      lz4_enable:
+        description: '是否安装 lz4 1.10.0+zstd 1.5.7 补丁'
+        required: true
+        type: boolean
+        default: true
+      lz4kd_enable:
+        description: '是否安装 LZ4KD 补丁（与 lz4 互斥，勿同开）'
+        required: true
+        type: boolean
+        default: false
+      bbr_enable:
+        description: 'bbr算法（false关闭 / true仅加入算法 / default启用并设为默认）'
+        required: true
+        type: choice
+        default: 'false'
+        options:
+          - 'false'
+          - 'true'
+          - 'default'
+      droidspaces_enable:
+        description: 'Droidspaces容器支持（false关闭 / standard开启+ntsync / extend更多测试项）'
+        required: true
+        type: choice
+        default: 'false'
+        options:
+          - 'false'
+          - 'standard'
+          - 'extend'
+      better_net:
+        description: '网络功能拓展（ipset/iptables 等高级网络功能内核支持）'
+        required: true
+        type: boolean
+        default: false
+      adios_enable:
+        description: 'ADIOS IO调度器（sm8750/sm8850 平台特性参数）'
+        required: true
+        type: boolean
+        default: true
+      ssg_enable:
+        description: 'SSG（sm8650 平台特性参数）'
+        required: true
+        type: boolean
+        default: true
+      rekernel_enable:
+        description: 'Re-Kernel支持（配合 Freezer/NoActive 等提升应用冻结）'
+        required: true
+        type: boolean
+        default: false
+      baseband_guard:
+        description: '内核级基带保护（阻止非用户分区写入，防格机）'
+        required: true
+        type: boolean
+        default: true
+      ccache_update:
+        description: '更新ccache缓存（改配置/源码/需刷新缓存时开启）'
+        required: true
+        type: boolean
+        default: false
+      ccache_debug:
+        description: '上传 Ccache 调试日志（调试用，无需开启）'
+        required: true
+        type: boolean
+        default: false
       suffix_mode:
-        description: '内核后缀模式（留空=用编译工作流默认版本名；自动=SunsetRNE_时间戳_随机数；自定义=手动填）'
+        description: '内核后缀模式（留空=默认版本名；自动=SunsetRNE_时间戳_随机数；自定义=手动填）'
         required: true
         type: choice
         default: 'empty'
@@ -70,9 +154,23 @@ jobs:
       - name: 安装依赖
         run: pip install --quiet pyyaml
 
-      - name: 加载档案并生成任务（dry-run 预检）
+      - name: 校验参数并生成任务（dry-run 预检）
         env:
           WORKFLOW: ${{ github.event.inputs.workflow }}
+          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
+          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          KPM_ENABLE: ${{ github.event.inputs.kpm_enable }}
+          LZ4_ENABLE: ${{ github.event.inputs.lz4_enable }}
+          LZ4KD_ENABLE: ${{ github.event.inputs.lz4kd_enable }}
+          BBR_ENABLE: ${{ github.event.inputs.bbr_enable }}
+          DROIDSPACES_ENABLE: ${{ github.event.inputs.droidspaces_enable }}
+          BETTER_NET: ${{ github.event.inputs.better_net }}
+          ADIOS_ENABLE: ${{ github.event.inputs.adios_enable }}
+          SSG_ENABLE: ${{ github.event.inputs.ssg_enable }}
+          REKERNEL_ENABLE: ${{ github.event.inputs.rekernel_enable }}
+          BASEBAND_GUARD: ${{ github.event.inputs.baseband_guard }}
+          CCACHE_UPDATE: ${{ github.event.inputs.ccache_update }}
+          CCACHE_DEBUG: ${{ github.event.inputs.ccache_debug }}
           SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
           SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
           DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
@@ -82,6 +180,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WORKFLOW: ${{ github.event.inputs.workflow }}
+          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
+          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          KPM_ENABLE: ${{ github.event.inputs.kpm_enable }}
+          LZ4_ENABLE: ${{ github.event.inputs.lz4_enable }}
+          LZ4KD_ENABLE: ${{ github.event.inputs.lz4kd_enable }}
+          BBR_ENABLE: ${{ github.event.inputs.bbr_enable }}
+          DROIDSPACES_ENABLE: ${{ github.event.inputs.droidspaces_enable }}
+          BETTER_NET: ${{ github.event.inputs.better_net }}
+          ADIOS_ENABLE: ${{ github.event.inputs.adios_enable }}
+          SSG_ENABLE: ${{ github.event.inputs.ssg_enable }}
+          REKERNEL_ENABLE: ${{ github.event.inputs.rekernel_enable }}
+          BASEBAND_GUARD: ${{ github.event.inputs.baseband_guard }}
+          CCACHE_UPDATE: ${{ github.event.inputs.ccache_update }}
+          CCACHE_DEBUG: ${{ github.event.inputs.ccache_debug }}
           SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
           SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
           DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
