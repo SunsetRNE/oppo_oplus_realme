@@ -1,0 +1,25 @@
+{
+  "workflow": "sm8650_fastbuild_6.1.141.yml",
+  "platform": "sm8650",
+  "version": "6.1.141",
+  "verified": false,
+  "note": "默认值建档（待人工校准）",
+  "updated_at": "2026-08-04",
+  "variants": {
+    "default": {
+      "ksu_type": "resukisu",
+      "susfs_enable": true,
+      "kpm_enable": false,
+      "lz4_enable": true,
+      "lz4kd_enable": false,
+      "bbr_enable": "false",
+      "droidspaces_enable": "false",
+      "better_net": false,
+      "ssg_enable": true,
+      "rekernel_enable": false,
+      "baseband_guard": true,
+      "ccache_update": false,
+      "ccache_debug": false
+    }
+  }
+}

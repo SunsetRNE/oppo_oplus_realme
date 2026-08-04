@@ -1,0 +1,25 @@
+{
+  "workflow": "sm8850_fastbuild_6.12.38.yml",
+  "platform": "sm8850",
+  "version": "6.12.38",
+  "verified": false,
+  "note": "默认值建档（待人工校准）",
+  "updated_at": "2026-08-04",
+  "variants": {
+    "default": {
+      "ksu_type": "resukisu",
+      "susfs_enable": true,
+      "kpm_enable": false,
+      "lz4_enable": true,
+      "lz4kd_enable": false,
+      "bbr_enable": "false",
+      "droidspaces_enable": "false",
+      "better_net": false,
+      "adios_enable": true,
+      "rekernel_enable": false,
+      "baseband_guard": true,
+      "ccache_update": false,
+      "ccache_debug": false
+    }
+  }
+}
