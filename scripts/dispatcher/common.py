@@ -211,13 +211,31 @@ def delete_task_file(subdir, name):
     return status == 200
 
 
-def dispatch_workflow(wf_file, inputs=None):
-    """触发编译 workflow（GITHUB_TOKEN, 需 actions: write）。"""
+def dispatch_workflow(wf_file, inputs=None, dispatched_at=None):
+    """
+    触发编译 workflow 并返回 run_id（GITHUB_TOKEN, 需 actions: write）。
+    dispatch API 不返回 run id，故触发后轮询该 workflow 最新 runs，
+    找到 created_at 晚于触发时刻的 run 即视为本次触发（最多等 25 秒）。
+    返回 (run_id 或 None, 是否成功)。
+    """
     status, _ = api("POST", f"/actions/workflows/{wf_file}/dispatches", {
         "ref": BRANCH,
         "inputs": inputs or {},
     })
-    return status == 204
+    if status != 204:
+        return None, False
+    import time
+    anchor = dispatched_at or datetime.datetime.now(TZ_CN).isoformat(timespec="seconds")
+    for _ in range(10):
+        time.sleep(2.5)
+        st, data = api("GET", f"/actions/workflows/{wf_file}/runs?per_page=5")
+        if st != 200 or not isinstance(data, dict):
+            continue
+        for r in data.get("workflow_runs", []):
+            created = r.get("created_at", "")
+            if created and created >= anchor:
+                return r["id"], True
+    return None, True  # 触发成功但未拿到 run_id（下次 reconcile 按时间兜底）
 
 
 def get_run_status(run_id):

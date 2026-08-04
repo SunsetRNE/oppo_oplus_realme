@@ -40,6 +40,23 @@ def summary_line():
     return f"📊 队列：pending={n_p} running={n_r} done={n_d} failed={n_f}"
 
 
+def _find_run_by_time(task):
+    """兜底：按 dispatched_at 查该 workflow 最新 run（dispatch 后未拿到 run_id 时用）。"""
+    import urllib.parse
+    from common import api, REPO, TOKEN
+    anchor = task.get("dispatched_at") or task.get("created_at")
+    if not anchor:
+        return None
+    wf = urllib.parse.quote(task["workflow"])
+    status, data = api("GET", f"/actions/workflows/{wf}/runs?per_page=10")
+    if status != 200 or not isinstance(data, dict):
+        return None
+    for r in data.get("workflow_runs", []):
+        if r.get("created_at", "") >= anchor:
+            return r["id"]
+    return None
+
+
 def reconcile_running():
     """幂等恢复：扫 running/，查 run 状态；completed → done/，失败按重试策略。"""
     moved = []
@@ -49,13 +66,19 @@ def reconcile_running():
             continue
         run_id = task.get("run_id")
         if not run_id:
-            # 已写 running 但 dispatch 未完成（极端情况）→ 补触发
-            ok = _dispatch(task)
-            if ok:
-                moved.append(f"↻ 补触发 {task['workflow']} (run 待查)")
+            # 优先按触发时间兜底找回 run_id；找不到才补触发（防重复编译）
+            run_id = _find_run_by_time(task)
+            if run_id:
+                task["run_id"] = run_id
+                write_task_file("running", f["name"], task)
+                moved.append(f"🔍 按时间找回 run_id={run_id}（{task['workflow']}）")
             else:
-                moved.append(f"❌ 补触发失败 {task['workflow']}")
-            continue
+                ok = _dispatch(task)
+                if ok:
+                    moved.append(f"↻ 补触发 {task['workflow']} (run 待查)")
+                else:
+                    moved.append(f"❌ 补触发失败 {task['workflow']}")
+                continue
         status, conclusion = get_run_status(run_id)
         if status != "completed":
             moved.append(f"⏳ {task['workflow']} run={run_id} 仍在 {status}")
@@ -75,10 +98,13 @@ def reconcile_running():
 
 
 def _dispatch(task):
-    """触发编译并记录 run_id；返回是否成功。"""
-    ok = dispatch_workflow(task["workflow"], task.get("inputs") or {})
+    """触发编译并回填 run_id/dispatched_at；返回是否成功。"""
+    dispatched_at = now_iso()
+    run_id, ok = dispatch_workflow(task["workflow"], task.get("inputs") or {}, dispatched_at=dispatched_at)
     if ok:
-        task["dispatched_at"] = now_iso()
+        task["dispatched_at"] = dispatched_at
+        if run_id:
+            task["run_id"] = run_id
     return ok
 
 
