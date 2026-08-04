@@ -1,0 +1,40 @@
+name: 🔄 统一编译触发器（消费入队）
+
+# 独立于编译体系之外：定期扫描 queue/，消费到期任务并触发对应编译 workflow
+# - 每轮最多消费 batch_size 个 → 并发天然受限（默认2，不碰 runner 上限）
+# - running/ 幂等恢复：崩溃后下次 cron 继续
+# - 只读标准任务 JSON，不接触中文配置解析
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: '本轮最多消费任务数（默认2；调大=更快但并发更高）'
+        required: true
+        type: number
+        default: 2
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  consume:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: pip install --quiet pyyaml
+
+      - name: 消费队列并触发编译
+        run: python3 scripts/dispatcher/consume_tasks.py --batch ${{ inputs.batch_size || 2 }}
+
+      - name: 输出队列摘要
+        if: always()
+        run: |
+          echo "### 🔄 触发器执行完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 队列状态见上方日志（pending/running/done/failed）" >> "$GITHUB_STEP_SUMMARY"

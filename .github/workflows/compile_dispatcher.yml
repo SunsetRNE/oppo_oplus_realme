@@ -1,0 +1,109 @@
+name: 🎛️ 统一编译生成器（参数入队）
+
+# 独立于编译体系之外：只负责"生成任务入队"，不触发编译
+# 编译触发由 compile_trigger.yml（触发器）消费 queue/pending/ 完成
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: '目标平台（all=三平台全部，或指定单个）'
+        required: true
+        type: choice
+        default: 'all'
+        options:
+          - 'all'
+          - 'sm8850'
+          - 'sm8750'
+          - 'sm8650'
+      versions:
+        description: '版本过滤（逗号分隔，如 6.12.23,6.12.58；留空=该平台全部版本）'
+        required: false
+        type: string
+        default: ''
+      param_mode:
+        description: '参数模式（默认=各编译工作流默认参数；自定义=覆盖下方常用参数）'
+        required: true
+        type: choice
+        default: 'default'
+        options:
+          - 'default'
+          - 'custom'
+      ksu_type:
+        description: 'KSU分支（仅自定义模式生效；原版ksu因上游漂移不可用，勿选）'
+        required: true
+        type: choice
+        default: 'resukisu'
+        options:
+          - 'resukisu'
+          - 'sukisu'
+          - 'ksunext'
+          - 'none'
+      susfs_enable:
+        description: '是否开启susfs（仅自定义模式生效）'
+        required: true
+        type: boolean
+        default: true
+      suffix_mode:
+        description: '内核后缀模式（留空=用默认版本名；自动=生成SunsetRNE_时间戳_随机数；自定义=手动填）'
+        required: true
+        type: choice
+        default: 'empty'
+        options:
+          - 'empty'
+          - 'auto'
+          - 'custom'
+      suffix_custom:
+        description: '自定义内核后缀（仅 suffix_mode=custom 时使用；⚠️禁止空格！建议 SunsetRNE_20260804_001 格式）'
+        required: false
+        type: string
+        default: ''
+      delay_until:
+        description: '延迟触发时间（格式 2026-08-04 15:00，UTC+8；留空=立即）'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取仓库代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: pip install --quiet pyyaml
+
+      - name: 解析编译工作流并生成任务（dry-run 预检）
+        env:
+          PLATFORM: ${{ github.event.inputs.platform }}
+          VERSIONS: ${{ github.event.inputs.versions }}
+          PARAM_MODE: ${{ github.event.inputs.param_mode }}
+          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
+          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
+          SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
+          DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
+        run: python3 scripts/dispatcher/generate_tasks.py --dry-run
+
+      - name: 正式入队 queue/pending/
+        env:
+          PLATFORM: ${{ github.event.inputs.platform }}
+          VERSIONS: ${{ github.event.inputs.versions }}
+          PARAM_MODE: ${{ github.event.inputs.param_mode }}
+          KSU_TYPE: ${{ github.event.inputs.ksu_type }}
+          SUSFS_ENABLE: ${{ github.event.inputs.susfs_enable }}
+          SUFFIX_MODE: ${{ github.event.inputs.suffix_mode }}
+          SUFFIX_CUSTOM: ${{ github.event.inputs.suffix_custom }}
+          DELAY_UNTIL: ${{ github.event.inputs.delay_until }}
+        run: python3 scripts/dispatcher/generate_tasks.py
+
+      - name: 输出摘要
+        if: always()
+        run: |
+          echo "### 🎛️ 生成器执行完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 任务已写入 \`queue/pending/\`，将由触发器（每5分钟）自动消费" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 查看队列状态：仓库 \`queue/\` 目录" >> "$GITHUB_STEP_SUMMARY"
