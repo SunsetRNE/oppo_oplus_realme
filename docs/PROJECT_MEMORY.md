@@ -1,7 +1,7 @@
 # 🧠 项目记忆（Project Memory）
 
 > 用途：脱离上游（cctv18）、建立自有内核编译平台的**完整状态记忆**，供后续开发延续
-> 最后更新：2026-08-04
+> 最后更新：2026-08-04（**开发阶段收尾，当前暂停**）
 > 维护原则：每次变更/决策后同步更新本文件，保持与真实状态一致
 
 ---
@@ -63,16 +63,17 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 本地改脚本 → git push（SSH）→ GitHub Actions 触发（PAT API）→ 构建 → Release 发布（带 checksums.sha256）→ 文档记录（RELEASE_LOG）
 ```
 
-## 7. 文档体系（docs/ 六件套）
+## 7. 文档体系（docs/ 七件套）
 
 | 文档 | 内容 |
 |---|---|
 | RELEASE_PROCESS.md | 四阶段发布流程 + 红线（>10MB/无dirty/可回滚/参数留痕） |
 | TRACKING.md | 17 仓库同步状态表（状态快照） |
 | SYNC_LOG.md | 同步变更对照（事件日志，时间倒序；与 TRACKING 分工：事件 vs 状态） |
-| DECISIONS.md | ADR-001~007 决策记录 |
+| DECISIONS.md | ADR-001~010 决策记录 |
 | RELEASE_LOG.md | 历史发布台账（正式包 + 测试包区分） |
 | PROJECT_MEMORY.md | 本文件，总记忆 |
+| PROJECT_LOCATIONS.md | 本地工作区 ↔ GitHub 实际地址索引（含认证速查） |
 
 ## 8. 技术要点与坑（务必记住）
 
