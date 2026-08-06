@@ -17,11 +17,12 @@
 ```
 oppo_oplus_realme/
 ├── sm8850/  sm8750/  sm8650/      # 三平台内容（local脚本/补丁/lib/zram）
-├── .github/workflows/              # 30 个工作流（sm<平台>_<用途>.yml）
-│   ├── sm8850_fastbuild_6.12.23.yml       # 在线构建（按平台+内核版本）
-│   ├── sm8850_build-test.yml              # 发布测试
-│   ├── sm8850_cleaner.yml                 # 清理 ccache（需 DELETE 确认）
-│   └── ...
+├── .github/workflows/              # 27 个工作流
+│   ├── compile_dispatcher.yml             # 统一编译生成器（表单参数→任务队列）
+│   ├── compile_trigger.yml                # 链式触发执行器（消费任务队列）
+│   ├── sm<平台>_fastbuild_*.yml           # 21 个在线构建（按平台+内核版本）
+│   ├── build-test.yml                     # 发布测试
+│   └── cleaner.yml                        # 清理 ccache（需 DELETE 确认）
 ├── .ssh/                           # SSH 配置（git@github.com 443 隧道）
 └── reports/                        # 解析/扫描/逻辑链报告
 ```
@@ -30,7 +31,7 @@ oppo_oplus_realme/
 
 ### 在线编译（GitHub Actions）
 1. 进入仓库 **Actions** 页 → 选择对应平台的 `fastbuild_<版本>` 工作流
-2. **Run workflow** → 配置参数（KSU 分支 / susfs / lz4 / Droidspaces / BBR 等）
+2. **Run workflow** → 配置参数（KSU 分支 / susfs / lz4 / Droidspaces / BBR / 零宽字符漏洞修复等）
 3. 构建完成后自动发布 Release（`OPPO-OPlus-Realme-build-*` tag）
 
 ### 本地编译
@@ -64,6 +65,7 @@ git push origin --all --tags --prune
 ## 📌 当前工作流配置（对标上游基线）
 
 - **补丁顺序链**：dirty清理 → 版本后缀 → KSU注入 → susfs → lz4/zstd → lz4kd → defconfig → config隐藏 → Droidspaces → BBG
+- **零宽字符漏洞修复（可选，默认关闭）**：`unicode_fix` 开关 → 应用上游 commit `5c26d2f1` 补丁（fs/unicode ignorable 特判移除；防反作弊扫盘/黑名单文件名绕过；CVE-2024-50089 已撤回；会轻微降低文件查找性能）
 - **ccache 三级缓存**：actions/cache → 公共 release → 上传覆盖（`ccache_update` 控制）
 - **KSU 版本号**：ReSukiSU `rev-list+30700` / Next & KSU `分页数+30000`
 - **产物命名**：`Anykernel3-<机型>-<特性标签>-v<日期>.zip`

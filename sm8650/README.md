@@ -35,6 +35,7 @@
 - [x] 添加了对[Mountify](https://github.com/backslashxx/mountify)模块的支持
 - [x] 加入Re:Kernel支持，与Freezer，NoActive等软件配合降低功耗
 - [x] 加入内核防格基带保护(By [@showdo](https://github.com/showdo))，有效防止恶意格机脚本/程序对系统分区数据的破坏
+- [x] 可选加入零宽字符漏洞修复（fs/unicode ignorable特判移除，防反作弊扫盘/黑名单文件名绕过；上游commit5c26d2f1；会轻微降低文件查找性能，默认关闭）
 ## 待实现：
 - [ ] zram内置化，无需外置zram.ko挂载 ~~（有了新版 lz4&zstd 补丁真的还有必要吗）~~
 - [ ] Nethunter 网卡监听模式支持
