@@ -90,6 +90,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 11. **zram.zip 特殊**：`.gitignore` 含 `*.zip`，三平台 zram.zip 需 `git add -f` 强制添加；raw CDN 对曾 404 的 URL 有负缓存（push 后需等数分钟刷新）；ksu_type=none 等组合打包时会下载 zram.zip
 12. **6.1.128 独有坑**：该 workflow 曾缺失「添加KernelSU」步骤的 `cd kernel_workspace`（上游 bug，已修复 51b5205）；上游同步时需检查此修复是否被覆盖
 13. **ksu=原版 KernelSU 已可用**（ADR-010 已 Superseded）：曾误判为 tiann/KernelSU 上游漂移（klog.h 找不到），实际根因是 `O=out` 分离构建下 `KSU_KERNEL_DIR` 相对路径解析错误；已改为注入绝对 include 路径（`KSU_ABS_DIR="$(pwd)/kernel"`）并切到自持 fork `SunsetRNE/KernelSU`（=tiann 原版），21 个 fastbuild 全部套用，sm8850 6.12.23 ksu 构建实测通过（run 30913997284）；调度器 ksu_type 已重新开放 `ksu` 选项
+14. **零宽字符漏洞补丁（可选开关 `unicode_fix`，默认关）**：`fs/unicode` 对 Default_Ignorable_Code_Point（零宽空格 U+200B、零宽连接符 U+200D 等）做特判"规范化时删除"，导致含/不含零宽字符的文件名规范化后等效 → 可绕过反作弊扫盘、文件黑名单等基于文件名的检测。修复=上游 commit `5c26d2f1`（`unicode: Don't special case ignorable code points`，CVE-2024-50089 已被 NVD 撤回），补丁 `other_patch/unicode-bypass_fix_5.10-6.12.patch`（5.10-6.12 通用，6.1 以下需另加 fix2）。⚠️ 补丁会轻微降低文件查找性能，故默认关闭，需防扫盘场景（三角洲等）才开启；workflow 步骤带 `-N` 容错（内核已含修复则自动跳过）
 
 ## 9. 当前进度（截至 2026-08-04）
 
