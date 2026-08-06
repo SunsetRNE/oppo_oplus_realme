@@ -89,7 +89,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 10. **组合测试注意**：批量触发不同参数组合时，先核对 inputs 互斥关系（参考各 workflow inputs 描述），避免无效失败浪费构建时间
 11. **zram.zip 特殊**：`.gitignore` 含 `*.zip`，三平台 zram.zip 需 `git add -f` 强制添加；raw CDN 对曾 404 的 URL 有负缓存（push 后需等数分钟刷新）；ksu_type=none 等组合打包时会下载 zram.zip
 12. **6.1.128 独有坑**：该 workflow 曾缺失「添加KernelSU」步骤的 `cd kernel_workspace`（上游 bug，已修复 51b5205）；上游同步时需检查此修复是否被覆盖
-13. **ksu=原版 KernelSU 暂不可用**：tiann/KernelSU main 分支 klog.h 移到 include/ 但引用未更新（上游漂移，ADR-010）；用 ksu_type=ksu 构建会编译失败，等上游修复
+13. **ksu=原版 KernelSU 已可用**（ADR-010 已 Superseded）：曾误判为 tiann/KernelSU 上游漂移（klog.h 找不到），实际根因是 `O=out` 分离构建下 `KSU_KERNEL_DIR` 相对路径解析错误；已改为注入绝对 include 路径（`KSU_ABS_DIR="$(pwd)/kernel"`）并切到自持 fork `SunsetRNE/KernelSU`（=tiann 原版），21 个 fastbuild 全部套用，sm8850 6.12.23 ksu 构建实测通过（run 30913997284）；调度器 ksu_type 已重新开放 `ksu` 选项
 
 ## 9. 当前进度（截至 2026-08-04）
 
@@ -100,7 +100,7 @@ susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1
 - 哈希自动验证上线并实战验证（run 30872517396，10min 缓存命中）
 - 文档六件套建齐
 - **批量+组合测试收官**：批次A 6版本全绿；批次B 3组合全绿（sukisu+droidspaces / ksunext+kpm+bbr / none+lz4kd）；2个失败已定位修复（lz4/lz4kd互斥=参数问题；zram.zip 404=.gitignore遗漏已 git add -f 修复）
-- **批次C/D 收官**：剩余13版本全绿（21/21 workflow 全通过）；批次D 3/4组合成功；6.1.128 修复缺失 cd（ADR-009）；ksu原版受 tiann/KernelSU 上游漂移暂不可用（ADR-010）
+- **批次C/D 收官**：剩余13版本全绿（21/21 workflow 全通过）；批次D 3/4组合成功；6.1.128 修复缺失 cd（ADR-009）；ksu原版曾受 tiann/KernelSU 上游漂移暂不可用（ADR-010，**已解决**：O=out 路径缺陷，见技术要点13，调度器已重新开放 ksu 选项）
 
 **🔄 进行中**
 - （无）

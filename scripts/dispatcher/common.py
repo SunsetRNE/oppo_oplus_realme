@@ -157,15 +157,13 @@ RULES = {
     },
     # lz4 与 lz4kd 互斥（两者都改 fs/f2fs/compress.c，同开会补丁冲突）
     "lz4_mutex": ("lz4_enable", "lz4kd_enable"),
-    # 原版 KernelSU 因上游漂移暂不可用（ADR-010）
-    "ksu_banned": ("ksu",),
 }
 
 
 def validate_inputs(workflow_file, inputs, wf_inputs):
     """
     校验注入参数。返回错误列表（空 = 通过）。
-    校验点：input 存在性（防422）/ choice 合法性 / 互斥 / ksu禁用 / 后缀规则。
+    校验点：input 存在性（防422）/ choice 合法性 / 互斥 / 后缀规则。
     """
     errs = []
     # 1) input 存在性（动态白名单，根除 422）
@@ -181,10 +179,7 @@ def validate_inputs(workflow_file, inputs, wf_inputs):
     a, b = RULES["lz4_mutex"]
     if inputs.get(a) and inputs.get(b):
         errs.append("lz4 与 lz4kd 互斥（都修改 fs/f2fs/compress.c），不能同时开启")
-    # 4) ksu 原版禁用（ADR-010）
-    if str(inputs.get("ksu_type", "")) in RULES["ksu_banned"]:
-        errs.append("原版 KernelSU(ksu) 因上游漂移暂不可用（ADR-010），请用 resukisu/sukisu/ksunext/none")
-    # 5) kernel_suffix 规则引擎
+    # 4) kernel_suffix 规则引擎
     ks = str(inputs.get("kernel_suffix", "") or "")
     rule = RULES["kernel_suffix"]
     if ks:

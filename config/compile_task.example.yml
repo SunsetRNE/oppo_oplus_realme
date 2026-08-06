@@ -15,7 +15,7 @@ tasks:
     版本: 6.12.23               # 与 .github/workflows/sm*_fastbuild_*.yml 文件名版本一致
     参数模式: 默认              # 默认 / 自定义
     # ---- 仅"自定义"模式生效 ----
-    KSU分支: resukisu           # resukisu / sukisu / ksunext / none（原版ksu不可用）
+    KSU分支: resukisu           # resukisu / sukisu / ksunext / ksu（原版，已可用）/ none
     开启susfs: 是               # 是 / 否
     LZ4补丁: 是                 # 是 / 否
     LZ4KD补丁: 否               # 是 / 否（与LZ4互斥，二选一）
