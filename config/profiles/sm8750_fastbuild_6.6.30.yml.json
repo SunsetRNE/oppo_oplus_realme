@@ -18,6 +18,7 @@
       "adios_enable": false,
       "rekernel_enable": false,
       "baseband_guard": true,
+      "unicode_fix": false,
       "ccache_update": false,
       "ccache_debug": false
     }
