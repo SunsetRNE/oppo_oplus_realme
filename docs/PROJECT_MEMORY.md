@@ -1,0 +1,139 @@
+# 🧠 项目记忆（Project Memory）
+
+> 用途：脱离上游（cctv18）、建立自有内核编译平台的**完整状态记忆**，供后续开发延续
+> 最后更新：2026-09-07（**编译脚本拆分重构：链路 A 移除 + 链路 B 阶段化**）
+> 维护原则：每次变更/决策后同步更新本文件，保持与真实状态一致
+
+---
+
+## 1. 项目目标与架构
+
+**目标**：完全脱离 cctv18 上游依赖，构建属于自己的编译平台（源码/补丁/工具链/ccache 全自持），并建立可追溯、可验证的正式发布流程。
+
+**架构**：三平台（sm8850/sm8750/sm8650）统一由 `SunsetRNE/oppo_oplus_realme` 单仓库承载 workflow 与脚本，内核源码与支撑组件分散在 17 个自持仓库。
+
+## 2. 仓库矩阵（17 自持 + 1 统一）
+
+### 统一仓库（主战场）
+| 仓库 | 说明 |
+|---|---|
+| `SunsetRNE/oppo_oplus_realme` | workflow 24 个、sm8850/sm8750/sm8650 子目录、docs 六件套、.ssh |
+
+### 第一梯队：内核源码（10，只能 fork 跟随上游，不可自建）
+android_kernel_common_oneplus_sm8850 / sm8750 / sm8650 / sm8845、android_gki_kernel_common、android_kernel_oneplus_mt6993 / mt6991 / mt6989 / mt6897、android_kernel_oppo_mt6993
+
+### 第二梯队：支撑仓（7）
+susfs4oki（补丁，7 分支）、oneplus_sm8650_toolchain（附件 8/8，含 1.1GB clang）、public_ccache（附件 78/78，24.83GB，**2026-08-04 全量完成**）、AnyKernel3、Baseband-guard、KPatch-Next（附件 44/44）、ReSukiSU_CI（附件 1848/1848）
+
+> 同步方法：`git fetch upstream --prune; git push origin --all --tags --prune`（网页 Sync fork 只同步默认分支，不可用）
+
+## 3. 认证与凭证
+
+| 项 | 值/说明 |
+|---|---|
+| SSH 密钥 | `id_ed25519`，隧道 `ssh.github.com:443`，可 push/fetch 代码，**不能调 REST API** |
+| PAT | `ghp_***`（SunsetRNE，repo 权限，7 天有效；**明文勿写入任何文档/仓库**，用完可在 settings/tokens 撤销。需要时向用户索要） |
+| Git 用户 | SunsetREN / z100o190zgxc@163.com |
+| 统一仓库 remote | `git@github.com:SunsetRNE/oppo_oplus_realme.git` |
+
+## 4. 工作区环境（Android）
+
+- 根目录：`/data/user/0/com.ai.assistance.operit/files/workspace/oppo_oplus_realme/`
+  - `oppo_oplus_realme/`（统一仓库）
+  - `oppo_oplus_realme_sm8850|8750|8650/`（平台仓库，含 .local/patches）
+  - `reports/`（01-04 号报告）
+- 双通道：`super_admin:terminal`（Ubuntu proot，可访问 sdcard，**无法读应用沙箱 600 权限文件**）；`super_admin:shell`（Android root，可读沙箱）
+- **大文件**：上传用 `curl -T`（流式，避免 `--data-binary` OOM）；下载用 `curl -C -` 断点续传 + `--retry`
+- **终端坑**：禁止 `set -e`（会退出终端会话）；heredoc 写入大段代码可能双重转义（`\n` 变 `\\n`），复杂脚本用 create_file 写入最稳
+
+## 5. Workflow 体系（24 个：21 fastbuild + 3 支撑）
+
+| 类型 | 数量 | 说明 |
+|---|---|---|
+| `sm*_fastbuild_*.yml` | 21 | 真实构建+发布；**薄壳结构**（见下）；每版本 env 组（TZ/ANDROID_VERSION/KERNEL_VERSION/SUB_VERSION/KERNEL_NAME/CCACHE_KEY/PLATFORM_DIR/SRC_URL/SRC_DIRNAME/发布文案） |
+| `build-test.yml` | 1 | 三平台矩阵（platform: all/单个），只测打包管线不真编译；**2026-08-04 起取消 Release 发布**（仅上传 artifact） |
+| `cleaner.yml` | 1 | 根级清 ccache（DELETE 确认） |
+| `clean_workflow.yml` | 1 | 根级清运行记录 |
+
+**2026-09-07 编译脚本拆分重构（链路 A 移除 + 链路 B 阶段化）**：
+- 移除统一编译调度器（链路 A）：`compile_dispatcher.yml` / `compile_trigger.yml` / `profile_preview.yml` / `scripts/dispatcher/` / `config/profiles/` / `queue/` / `docs/统一编译调度器.md` 已删除
+- 链路 B 拆分：21 个 fastbuild 从 ~900 行单体瘦身为 ~360 行薄壳（表单 inputs + ccache action + 阶段调用 + 发布 job 保留在 YAML）
+- 编译逻辑全部迁入 `scripts/build/stages/00~26_*.sh`（每 stage 对应原一个 step，日志结构不变），公共函数 `scripts/build/lib.sh`，平台差异收敛到 `sm*/build.conf`（工具链/rust/补丁清单/iosched 等 15 项开关）
+- 顺带修复历史 bug：sm8750/sm8850 14 个工作流「制作名称」误用 `inputs.KERNEL_SUFFIX`（大小写错误导致 defconfig `-4k` 被空串剥离），已改为正确的小写 `kernel_suffix`
+- 仓库内文件（补丁/lib/zram.zip）改为从 checkout 工作区直接复制，消除 10+ 次 wget 自取（外部仓库仍走 curl/git）
+- 新增/改版本工作流可用 `python3 scripts/build/gen_workflows.py` 从旧 YAML 提取参数再生成（幂等，对新旧格式均可）
+
+**哈希验证三件套（ADR-007）**：①计算产物哈希（sha256sum → checksums.sha256 + GITHUB_OUTPUT）②SHA256 写入 Release notes ③发布后下载产物 `sha256sum -c` 自检（失败则 job 失败）。已实战验证（run 30872517396，10min 缓存命中构建，自检通过）。
+
+## 6. 构建流水线（主循环）
+
+```
+本地改脚本 → git push（SSH）→ GitHub Actions 触发（PAT API）→ 构建 → Release 发布（带 checksums.sha256）→ 文档记录（RELEASE_LOG）
+```
+
+## 7. 文档体系（docs/ 七件套）
+
+| 文档 | 内容 |
+|---|---|
+| RELEASE_PROCESS.md | 四阶段发布流程 + 红线（>10MB/无dirty/可回滚/参数留痕） |
+| TRACKING.md | 17 仓库同步状态表（状态快照） |
+| SYNC_LOG.md | 同步变更对照（事件日志，时间倒序；与 TRACKING 分工：事件 vs 状态） |
+| DECISIONS.md | ADR-001~010 决策记录 |
+| RELEASE_LOG.md | 历史发布台账（正式包 + 测试包区分） |
+| PROJECT_MEMORY.md | 本文件，总记忆 |
+| PROJECT_LOCATIONS.md | 本地工作区 ↔ GitHub 实际地址索引（含认证速查） |
+
+## 8. 技术要点与坑（务必记住）
+
+1. **sm8650 workflow inputs**：用 `ssg_enable`（非 adios），无 lz4 选项；传不存在的 input 报 422 `Unexpected inputs provided`
+2. **GITHUB_ENV 时序**：同一 step 内 `${{ env.xxx }}` 读不到刚写入的值，必须拆两步（写入 step → 使用 step）
+3. **job 缺 permissions**：release 类 job 必须 `permissions: contents: write`，否则 HTTP 403
+4. **补丁拉取（2026-09-07 更新）**：仓库内文件（`sm*/other_patch|droidspaces_patch|zram_patch|lib|zram.zip`）已改为从 checkout 工作区 `$GITHUB_WORKSPACE/...` 直接复制（`apply_self_patch` / `cp`），不再 wget 自取；外部仓库（susfs4oki / Baseband-guard / KPatch-Next / AnyKernel3）仍走 git/curl/wget
+5. **ccache 搬运**：断网导致 curl 55 上传失败时脚本 keep local 不重试（migrate2.py 的已知缺陷），补传用 `curl -T` + 3 次重试即可
+6. **build-test 产物**：0.0MB 测试包正常（只测管线），不可刷入设备；正式包必须 fastbuild + >10MB
+7. **Release 排序**：GitHub API 默认排序可能把 build-test 的 tag 排前面，查"最新"要用发布时间判断
+8. **上游迭代模式**：以"新增内核小版本+CVE 补丁"为主，极少改既有脚本 → 快进合并风险低；新版本脚本可模板化生成（**已于 2026-09-07 落地**：`scripts/build/gen_workflows.py` 从旧 YAML 提取参数生成薄壳工作流）
+9. **lz4 与 lz4kd 互斥**：两者都修改 `fs/f2fs/compress.c`，同时开启会补丁冲突（Hunk FAILED → .rej），触发组合参数时二选一（lz4kd=true 须配 lz4_enable=false）
+10. **组合测试注意**：批量触发不同参数组合时，先核对 inputs 互斥关系（参考各 workflow inputs 描述），避免无效失败浪费构建时间
+11. **zram.zip 特殊**：`.gitignore` 含 `*.zip`，三平台 zram.zip 需 `git add -f` 强制添加；raw CDN 对曾 404 的 URL 有负缓存（push 后需等数分钟刷新）；ksu_type=none 等组合打包时会下载 zram.zip
+12. **6.1.128 独有坑**：该 workflow 曾缺失「添加KernelSU」步骤的 `cd kernel_workspace`（上游 bug，已修复 51b5205）；上游同步时需检查此修复是否被覆盖
+13. **ksu=原版 KernelSU 已可用**（ADR-010 已 Superseded）：曾误判为 tiann/KernelSU 上游漂移（klog.h 找不到），实际根因是 `O=out` 分离构建下 `KSU_KERNEL_DIR` 相对路径解析错误；已改为注入绝对 include 路径（`KSU_ABS_DIR="$(pwd)/kernel"`）并切到自持 fork `SunsetRNE/KernelSU`（=tiann 原版），21 个 fastbuild 全部套用（现位于 `scripts/build/stages/10_ksu.sh`），sm8850 6.12.23 ksu 构建实测通过（run 30913997284）
+14. **零宽字符漏洞补丁（可选开关 `unicode_fix`，默认关）**：`fs/unicode` 对 Default_Ignorable_Code_Point（零宽空格 U+200B、零宽连接符 U+200D 等）做特判"规范化时删除"，导致含/不含零宽字符的文件名规范化后等效 → 可绕过反作弊扫盘、文件黑名单等基于文件名的检测。修复=上游 commit `5c26d2f1`（`unicode: Don't special case ignorable code points`，CVE-2024-50089 已被 NVD 撤回），补丁 `other_patch/unicode-bypass_fix_5.10-6.12.patch`（5.10-6.12 通用，6.1 以下需另加 fix2）。⚠️ 补丁会轻微降低文件查找性能，故默认关闭，需防扫盘场景（三角洲等）才开启；workflow 步骤带 `-N` 容错（内核已含修复则自动跳过）
+
+## 9. 当前进度（截至 2026-08-04）
+
+**✅ 已完成**
+- 17 仓库 fork/复刻 + 附件全量搬运（ccache 78/78、toolchain 8/8、KPatch 44/44、ReSukiSU_CI 1848/1848）
+- 统一仓库搭建，cctv18 引用清零，workflow 30→24（清理合并 + build-test 矩阵化）
+- **编译脚本拆分重构（2026-09-07）**：移除统一编译调度器（链路 A，dispatcher/queue/profiles 全套删除）；21 个 fastbuild 薄壳化（~900 行→~360 行），编译逻辑迁入 `scripts/build/stages/`（26 个阶段脚本）+ `sm*/build.conf` 平台配置；顺带修复 `KERNEL_SUFFIX` 大小写 bug（14 个工作流）；校验：21/21 YAML 解析、inputs 表单逐字一致、91/91 defconfig 行覆盖、每版本参数/平台开关/补丁清单全比对通过
+- 三平台正式发布 ×3（6.12.23 / 6.6.89 / 6.1.141，17-19MB 可刷入包）
+- 哈希自动验证上线并实战验证（run 30872517396，10min 缓存命中）
+- 文档六件套建齐
+- **批量+组合测试收官**：批次A 6版本全绿；批次B 3组合全绿（sukisu+droidspaces / ksunext+kpm+bbr / none+lz4kd）；2个失败已定位修复（lz4/lz4kd互斥=参数问题；zram.zip 404=.gitignore遗漏已 git add -f 修复）
+- **批次C/D 收官**：剩余13版本全绿（21/21 workflow 全通过）；批次D 3/4组合成功；6.1.128 修复缺失 cd（ADR-009）；ksu原版曾受 tiann/KernelSU 上游漂移暂不可用（ADR-010，**已解决**：O=out 路径缺陷，见技术要点13，调度器已重新开放 ksu 选项）
+
+**🔄 进行中**
+- （无）
+
+**📋 待办**
+- （可选）测试剩余内核版本（6.12.58_mtk / 6.6.118 等）
+- PAT 撤销（7 天自动过期）
+
+## 10. 后续开发路径（循环）
+
+1. 本地改脚本/workflow → 语法验证（bash -n / yaml.safe_load）
+2. git commit + push（SSH）
+3. PAT API 触发 workflow_dispatch
+4. 监控 run → 验证 Release（>10MB + checksums.sha256 + notes SHA256 一致）
+5. 更新 RELEASE_LOG.md / TRACKING.md / DECISIONS.md（如涉及）
+6. 循环
+
+---
+
+## 🔗 相关文档
+
+- 发布流程：`docs/RELEASE_PROCESS.md`
+- 同步跟踪：`docs/TRACKING.md`
+- 同步变更：`docs/SYNC_LOG.md`
+- 决策记录：`docs/DECISIONS.md`
+- 历史发布：`docs/RELEASE_LOG.md`

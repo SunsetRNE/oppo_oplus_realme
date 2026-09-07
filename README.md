@@ -1,0 +1,78 @@
+# 🌟 oppo_oplus_realme · 欧加真内核统一构建平台
+
+> **脱离上游（cctv18）的自有内核编译平台** —— 所有依赖指向 SunsetRNE 名下自持仓库
+
+本仓库整合了欧加（OPPO / 一加 / 真我）三代旗舰平台的自动化内核编译框架，基于 cctv18 开源方案重构自持，目标：**编译链路 100% 自主可控，上游仅作为可选的同步源**。
+
+## 📱 平台支持
+
+| 子目录 | 芯片平台 | 内核版本 | 工具链 | Android |
+|---|---|---|---|---|
+| `sm8850/` | 骁龙 8 Elite Gen5 (SM8850) / 天玑 9500 (MT6993) | 6.12.x | LLVM/Clang 19 + Rust 1.82 | A16 |
+| `sm8750/` | 骁龙 8 Elite (SM8750) / 天玑 9400+ (MT6991) | 6.6.x（含风驰 scx 移植） | LLVM/Clang 18 | A15 |
+| `sm8650/` | 骁龙 8 Gen3 (SM8650) / 天玑 9400e (MT6989) / 天玑 8350 (MT6897) | 6.1.x | LLVM/Clang 20 | A14/A15 |
+
+## 🗂️ 仓库结构
+
+```
+oppo_oplus_realme/
+├── sm8850/  sm8750/  sm8650/      # 三平台内容（local脚本/补丁/lib/zram/build.conf）
+│   └── build.conf                 #   平台编译配置（工具链/补丁清单/特性开关）
+├── scripts/
+│   └── build/                     # 链路 B 共享编译脚本（CI 与本地共用基础）
+│       ├── lib.sh                 #   公共函数库（加载 sm*/build.conf）
+│       ├── stages/00~26_*.sh      #   编译阶段脚本（下载/ccache/KSU/补丁/配置/构建/打包）
+│       └── gen_workflows.py       #   薄壳工作流生成器（每版本参数 → workflow YAML）
+├── .github/workflows/             # 24 个工作流
+│   ├── sm<平台>_fastbuild_*.yml   #   21 个在线构建（薄壳：表单 + 调用 stages + 发布）
+│   ├── build-test.yml             #   发布测试
+│   └── cleaner.yml / clean_workflow.yml  # 清理 ccache / 运行记录
+├── .ssh/                          # SSH 配置（git@github.com 443 隧道）
+└── reports/                       # 解析/扫描/逻辑链报告
+```
+
+## 🚀 使用方式
+
+### 在线编译（GitHub Actions）
+1. 进入仓库 **Actions** 页 → 选择对应平台的 `fastbuild_<版本>` 工作流
+2. **Run workflow** → 配置参数（KSU 分支 / susfs / lz4 / Droidspaces / BBR / 零宽字符漏洞修复等）
+3. 构建完成后自动发布 Release（`OPPO-OPlus-Realme-build-*` tag）
+
+### 本地编译
+```bash
+cd sm8850/local && bash builder_6.12.58.sh   # 按提示交互配置
+# 产物: Anykernel3-oppo+oplus+realme-<特性标签>-v<日期>.zip
+```
+
+## 🔗 依赖自持清单（已全部迁移至 SunsetRNE）
+
+| 依赖 | 自持仓库 | 状态 |
+|---|---|---|
+| 内核源码 ×10 | `SunsetRNE/android_kernel_*` | ✅ 已 fork（全部分支同步） |
+| 编译工具链 | `SunsetRNE/oneplus_sm8650_toolchain` | ✅ 8/8 附件已搬运 |
+| 公共 ccache | `SunsetRNE/public_ccache` | ✅ 78/78 附件已搬运 |
+| susfs 补丁 | `SunsetRNE/susfs4oki` | ✅ 已 fork（7 分支） |
+| KPM 模块 | `SunsetRNE/KPatch-Next` | ✅ 44/44 附件已搬运 |
+| 刷机模板 | `SunsetRNE/AnyKernel3` | ✅ 已 fork |
+| 基带保护 | `SunsetRNE/Baseband-guard` | ✅ 已 fork |
+| KSU 管理器 | `SunsetRNE/ReSukiSU_CI` | ✅ 1848/1848 附件已搬运 |
+
+## 🔄 上游同步（可选）
+
+```bash
+# 对每个 fork 仓库执行（建议放入 cron / Actions schedule）
+git remote add upstream https://github.com/cctv18/<repo>.git
+git fetch upstream --prune
+git push origin --all --tags --prune
+```
+
+## 📌 当前工作流配置（对标上游基线）
+
+- **编译脚本已拆分（链路 B 瘦身）**：21 个 fastbuild 工作流仅为"薄壳"（表单 inputs + ccache action + 阶段调用 + 发布），全部编译逻辑位于 `scripts/build/stages/`；平台差异收敛于 `sm*/build.conf`，每版本参数（源码 URL / 版本名 / ccache key / 发布文案）位于各 workflow 顶层 `env`。新增版本 = 加一个工作流文件（可经 `scripts/build/gen_workflows.py` 生成）
+- **补丁顺序链**：dirty清理 → KSU注入 → susfs → lz4/zstd → lz4kd → defconfig → config隐藏 → 网络增强/BBR/Droidspaces/IO调度/Re-Kernel/BBG → 版本后缀 → 构建 → KPM → AK3 打包
+- **零宽字符漏洞修复（可选，默认关闭）**：`unicode_fix` 开关 → 应用上游 commit `5c26d2f1` 补丁（fs/unicode ignorable 特判移除；防反作弊扫盘/黑名单文件名绕过；CVE-2024-50089 已撤回；会轻微降低文件查找性能）
+- **ccache 三级缓存**：actions/cache → 公共 release → 上传覆盖（`ccache_update` 控制）
+- **KSU 版本号**：ReSukiSU `rev-list+30700` / Next & KSU `分页数+30000`
+- **产物命名**：`Anykernel3-<机型>-<特性标签>-v<日期>.zip`
+
+> 注：`@cctv18` 署名已统一替换为 `@SunsetRNE`；本地脚本补丁 URL 已指向自持仓库。
