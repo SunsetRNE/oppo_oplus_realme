@@ -5,6 +5,10 @@
 #   - HAS_RUST=1（sm8850）：Rust 环境 + gendwarfksyms 路径重映射
 #   - HAS_RUST=0（sm8650/sm8750）：内联 KCFLAGS 直接 make
 # ============================================================
+# fail-fast：任何 make 失败立即终止，避免打印“内核编译完成！”假象后
+# 让打包阶段拿着不存在的 Image 报错（bash -e 对 && 链中非末位命令不生效，
+# 故下方两条 make 拆为独立语句）。
+set -e
 source "$(dirname "$0")/../lib.sh"
 
 WORKDIR="$GITHUB_WORKSPACE"
@@ -127,11 +131,12 @@ sudo rm -rf /usr/local/lib/android &
 sudo rm -rf /opt/ghc &
 sudo rm -rf /opt/hostedtoolcache/CodeQL &
 if [[ "$HAS_RUST" == "1" ]]; then
-  make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="clang" LD="ld.lld" OBJCOPY="llvm-objcopy" O=out gki_defconfig &&
-  export CC="$(pwd)/cc-wrapper" && export LD="$(pwd)/ld-wrapper" &&
+  make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="clang" LD="ld.lld" OBJCOPY="llvm-objcopy" O=out gki_defconfig
+  export CC="$(pwd)/cc-wrapper"
+  export LD="$(pwd)/ld-wrapper"
   make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" OBJCOPY="llvm-objcopy" O=out Image
 else
-  make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
+  make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig
   make -j"$(nproc --all)" LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
 fi
 
@@ -148,6 +153,6 @@ if [[ "$CCACHE_DEBUG" == "true" ]]; then
   zip -r9 debug.zip ccache.log config vmlinux.symvers
 fi
 echo "ccache状态："
-ccache -s
+ccache -s || true
 echo "编译后空间:"
 df -h

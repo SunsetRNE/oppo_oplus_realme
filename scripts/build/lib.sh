@@ -16,6 +16,15 @@
 GITHUB_WORKSPACE="${GITHUB_WORKSPACE:-$(pwd)}"
 PLATFORM_DIR="${PLATFORM_DIR:?❌ 未设置 PLATFORM_DIR（sm8650/sm8750/sm8850）}"
 
+# ---- ccache v4.12+ 布尔环境变量兼容 ----
+# workflow 的 ccache_debug 布尔输入默认 false；ccache v4.12 起布尔环境变量
+# 仅接受 true（false 会报 "invalid boolean environment variable value" 并退出），
+# 使 make gki_defconfig 的编译器探测（cc-version.sh → ccache clang -E）输出为空：
+#   ccache clang: unknown C compiler
+#   scripts/Kconfig.include:44: Sorry, this C compiler is not supported.
+# 因此非 true 时统一取消该变量（需要调试日志时请在 workflow 输入中显式传 true）。
+[[ "${CCACHE_DEBUG:-}" == "true" ]] || unset CCACHE_DEBUG
+
 # ---- 平台配置（sm8650/sm8750/sm8850/build.conf）----
 CONF_FILE="$GITHUB_WORKSPACE/$PLATFORM_DIR/build.conf"
 if [[ -f "$CONF_FILE" ]]; then
